@@ -1,4 +1,4 @@
-import type { PastelColor, Todo } from '@pastel-todo/shared';
+import type { PastelColor, Todo, UpdateTodoInput } from '@pastel-todo/shared';
 
 /**
  * Base URL for the API. When empty (the default in dev), requests go through
@@ -28,6 +28,20 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Throws an ApiError for a non-OK response, parsing any structured validation
+ * details from the body while tolerating non-JSON error bodies.
+ */
+async function throwApiError(res: Response, message: string): Promise<never> {
+  let details: ValidationErrorDetails | undefined;
+  try {
+    details = (await res.json()) as ValidationErrorDetails;
+  } catch {
+    // Non-JSON error body — leave details undefined.
+  }
+  throw new ApiError(res.status, message, details);
+}
+
 /** Fetches all todos from GET /todos. Throws on a non-OK response. */
 export async function fetchTodos(): Promise<Todo[]> {
   const res = await fetch(`${API_BASE}/todos`, {
@@ -52,13 +66,26 @@ export async function createTodo(title: string, color?: PastelColor): Promise<To
   });
 
   if (!res.ok) {
-    let details: ValidationErrorDetails | undefined;
-    try {
-      details = (await res.json()) as ValidationErrorDetails;
-    } catch {
-      // Non-JSON error body — leave details undefined.
-    }
-    throw new ApiError(res.status, `Failed to create todo (HTTP ${res.status})`, details);
+    return throwApiError(res, `Failed to create todo (HTTP ${res.status})`);
+  }
+
+  return (await res.json()) as Todo;
+}
+
+/**
+ * Updates an existing todo via PATCH /todos/:id and returns the persisted
+ * todo. Accepts any subset of `{ title, done, color }`; the server validates
+ * with the shared Zod schema. A 404 (unknown id) surfaces as an `ApiError`.
+ */
+export async function updateTodo(id: string, data: UpdateTodoInput): Promise<Todo> {
+  const res = await fetch(`${API_BASE}/todos/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    return throwApiError(res, `Failed to update todo (HTTP ${res.status})`);
   }
 
   return (await res.json()) as Todo;
