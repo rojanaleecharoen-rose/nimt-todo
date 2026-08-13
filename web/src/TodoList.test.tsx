@@ -414,7 +414,7 @@ describe('TodoList delete + clear completed', () => {
               ok: true,
               json: async () => [
                 makeTodo({ title: 'Done', done: true }),
-                makeTodo({ title: 'Active' }),
+                makeTodo({ title: 'Pending' }),
               ],
             },
       ),
@@ -430,7 +430,7 @@ describe('TodoList delete + clear completed', () => {
     await waitFor(() =>
       expect(screen.queryByText('Done')).not.toBeInTheDocument(),
     );
-    expect(screen.getByText('Active')).toBeInTheDocument();
+    expect(screen.getByText('Pending')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
     // The DELETE went to /todos?completed=true.
@@ -446,5 +446,242 @@ describe('TodoList delete + clear completed', () => {
 
     await screen.findByText('Active only');
     expect(screen.queryByRole('button', { name: /clear completed/i })).not.toBeInTheDocument();
+  });
+});
+
+describe('TodoList filtering + active count', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  const mixedTodos = () => [
+    makeTodo({ title: 'Buy milk' }),
+    makeTodo({ title: 'Walk dog', done: true }),
+  ];
+
+  it('renders All / Active / Completed filter controls and the active count', async () => {
+    mockFetch(mixedTodos());
+
+    render(<TodoList />);
+    await screen.findByText('Buy milk');
+
+    const all = screen.getByRole('button', { name: /^all$/i });
+    const active = screen.getByRole('button', { name: /^active$/i });
+    const completed = screen.getByRole('button', { name: /^completed$/i });
+
+    expect(all).toBeInTheDocument();
+    expect(active).toBeInTheDocument();
+    expect(completed).toBeInTheDocument();
+
+    // "All" is selected by default.
+    expect(all).toHaveAttribute('aria-pressed', 'true');
+    expect(active).toHaveAttribute('aria-pressed', 'false');
+    expect(completed).toHaveAttribute('aria-pressed', 'false');
+
+    // One of the two todos is incomplete.
+    expect(screen.getByText('1 item left')).toBeInTheDocument();
+  });
+
+  it('shows only incomplete todos when the Active filter is selected', async () => {
+    mockFetch(mixedTodos());
+
+    render(<TodoList />);
+    await screen.findByText('Buy milk');
+
+    fireEvent.click(screen.getByRole('button', { name: /^active$/i }));
+
+    expect(screen.getByText('Buy milk')).toBeInTheDocument();
+    expect(screen.queryByText('Walk dog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^active$/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it('shows only completed todos when the Completed filter is selected', async () => {
+    mockFetch(mixedTodos());
+
+    render(<TodoList />);
+    await screen.findByText('Buy milk');
+
+    fireEvent.click(screen.getByRole('button', { name: /^completed$/i }));
+
+    expect(screen.getByText('Walk dog')).toBeInTheDocument();
+    expect(screen.queryByText('Buy milk')).not.toBeInTheDocument();
+  });
+
+  it('shows all todos when the All filter is selected', async () => {
+    mockFetch(mixedTodos());
+
+    render(<TodoList />);
+    await screen.findByText('Buy milk');
+
+    fireEvent.click(screen.getByRole('button', { name: /^active$/i }));
+    expect(screen.queryByText('Walk dog')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^all$/i }));
+
+    expect(screen.getByText('Buy milk')).toBeInTheDocument();
+    expect(screen.getByText('Walk dog')).toBeInTheDocument();
+  });
+
+  it('counts the incomplete todos across a mixed list', async () => {
+    mockFetch([
+      makeTodo({ title: 'One' }),
+      makeTodo({ title: 'Two' }),
+      makeTodo({ title: 'Three', done: true }),
+    ]);
+
+    render(<TodoList />);
+    await screen.findByText('One');
+
+    expect(screen.getByText('2 items left')).toBeInTheDocument();
+  });
+
+  it('updates the active count when a todo is toggled done', async () => {
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+      Promise.resolve(
+        init?.method === 'PATCH'
+          ? { ok: true, json: async () => makeTodo({ title: 'Buy milk', done: true }) }
+          : { ok: true, json: async () => [makeTodo({ title: 'Buy milk' })] },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TodoList />);
+    await screen.findByText('Buy milk');
+    expect(screen.getByText('1 item left')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /mark "buy milk" as done/i }));
+
+    expect(await screen.findByText('0 items left')).toBeInTheDocument();
+  });
+
+  it('updates the active count when a done todo is reopened', async () => {
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+      Promise.resolve(
+        init?.method === 'PATCH'
+          ? { ok: true, json: async () => makeTodo({ title: 'Buy milk', done: false }) }
+          : { ok: true, json: async () => [makeTodo({ title: 'Buy milk', done: true })] },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TodoList />);
+    await screen.findByText('Buy milk');
+    expect(screen.getByText('0 items left')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /mark "buy milk" as not done/i }));
+
+    expect(await screen.findByText('1 item left')).toBeInTheDocument();
+  });
+
+  it('updates the active count when a new incomplete todo is added', async () => {
+    const created = makeTodo({
+      id: '00000000-0000-0000-0000-000000000002',
+      title: 'Fresh task',
+    });
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+      Promise.resolve(
+        init?.method === 'POST'
+          ? { ok: true, json: async () => created }
+          : { ok: true, json: async () => [makeTodo({ title: 'Existing' })] },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TodoList />);
+    await screen.findByText('Existing');
+    expect(screen.getByText('1 item left')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/new todo title/i), {
+      target: { value: 'Fresh task' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /add/i }));
+
+    expect(await screen.findByText('Fresh task')).toBeInTheDocument();
+    expect(screen.getByText('2 items left')).toBeInTheDocument();
+  });
+
+  it('updates the active count when a todo is deleted', async () => {
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+      Promise.resolve(
+        init?.method === 'DELETE'
+          ? { ok: true, json: async () => ({}) }
+          : {
+              ok: true,
+              json: async () => [
+                makeTodo({ title: 'Buy milk' }),
+                makeTodo({ id: '00000000-0000-0000-0000-000000000002', title: 'Walk dog' }),
+              ],
+            },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TodoList />);
+    await screen.findByText('Buy milk');
+    expect(screen.getByText('2 items left')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /delete "buy milk"/i }));
+
+    await waitFor(() =>
+      expect(screen.queryByText('Buy milk')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('1 item left')).toBeInTheDocument();
+  });
+
+  it('does not delete the underlying todos when filtering', async () => {
+    mockFetch(mixedTodos());
+
+    render(<TodoList />);
+    await screen.findByText('Buy milk');
+
+    fireEvent.click(screen.getByRole('button', { name: /^active$/i }));
+    expect(screen.getByText('Buy milk')).toBeInTheDocument();
+    expect(screen.queryByText('Walk dog')).not.toBeInTheDocument();
+
+    // Switch back to All — the filtered-out todo was never removed.
+    fireEvent.click(screen.getByRole('button', { name: /^all$/i }));
+    expect(screen.getByText('Buy milk')).toBeInTheDocument();
+    expect(screen.getByText('Walk dog')).toBeInTheDocument();
+  });
+
+  it('drops a todo from the Active view when toggled done but keeps it in All', async () => {
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+      Promise.resolve(
+        init?.method === 'PATCH'
+          ? { ok: true, json: async () => makeTodo({ title: 'Buy milk', done: true }) }
+          : {
+              ok: true,
+              json: async () => [
+                makeTodo({ title: 'Buy milk' }),
+                makeTodo({ title: 'Walk dog', done: true }),
+              ],
+            },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TodoList />);
+    await screen.findByText('Buy milk');
+
+    fireEvent.click(screen.getByRole('button', { name: /^active$/i }));
+    expect(screen.queryByText('Walk dog')).not.toBeInTheDocument();
+    expect(screen.getByText('1 item left')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /mark "buy milk" as done/i }));
+
+    // Done while on the Active filter → it leaves the filtered view.
+    await waitFor(() =>
+      expect(screen.queryByText('Buy milk')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('0 items left')).toBeInTheDocument();
+
+    // It still exists in the underlying list — back on All it's present (done).
+    fireEvent.click(screen.getByRole('button', { name: /^all$/i }));
+    expect(screen.getByText('Buy milk')).toBeInTheDocument();
+    expect(screen.getByText('Walk dog')).toBeInTheDocument();
   });
 });

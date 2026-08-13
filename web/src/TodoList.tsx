@@ -6,6 +6,15 @@ import { clearCompleted, deleteTodo, fetchTodos, updateTodo } from './api';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
+/** Client-side view filter over the fetched todos. */
+type Filter = 'all' | 'active' | 'completed';
+
+const FILTER_OPTIONS: { value: Filter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'active', label: 'Active' },
+  { value: 'completed', label: 'Completed' },
+];
+
 /**
  * Renders the add-todo form and all todos as a pastel-colored list.
  * New todos are appended to the end of the list, matching the server's
@@ -14,6 +23,7 @@ type LoadState = 'loading' | 'ready' | 'error';
 export function TodoList() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [state, setState] = useState<LoadState>('loading');
+  const [filter, setFilter] = useState<Filter>('all');
 
   useEffect(() => {
     let active = true;
@@ -94,7 +104,13 @@ export function TodoList() {
     }
   }
 
+  const activeCount = todos.filter((t) => !t.done).length;
   const hasCompleted = todos.some((t) => t.done);
+
+  // Filtering is a pure view over the fetched list — `todos` is never mutated.
+  const visibleTodos = todos.filter((t) =>
+    filter === 'all' ? true : filter === 'active' ? !t.done : t.done,
+  );
 
   return (
     <>
@@ -115,7 +131,7 @@ export function TodoList() {
       {state === 'ready' && todos.length > 0 && (
         <>
           <ul className="todo-list" aria-label="Your todos">
-            {todos.map((todo) => (
+            {visibleTodos.map((todo) => (
               <TodoItem
                 key={todo.id}
                 todo={todo}
@@ -125,8 +141,24 @@ export function TodoList() {
               />
             ))}
           </ul>
-          {hasCompleted && (
-            <div className="todo-footer">
+          <div className="todo-footer">
+            <span className="todo-count">
+              {activeCount} {activeCount === 1 ? 'item' : 'items'} left
+            </span>
+            <div className="todo-filters" role="group" aria-label="Filter todos">
+              {FILTER_OPTIONS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`todo-filter${filter === value ? ' todo-filter--active' : ''}`}
+                  aria-pressed={filter === value}
+                  onClick={() => setFilter(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {hasCompleted && (
               <button
                 type="button"
                 className="todo-clear-completed"
@@ -134,8 +166,8 @@ export function TodoList() {
               >
                 Clear completed
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </>
       )}
     </>

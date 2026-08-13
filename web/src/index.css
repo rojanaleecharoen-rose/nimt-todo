@@ -277,11 +277,56 @@ h1 {
   color: #8c0000;
 }
 
-/* Clear-completed footer */
+/* Footer: active count, view filters, and clear-completed */
 .todo-footer {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
   margin-top: 1rem;
+}
+
+.todo-count {
+  color: #5a6470;
+  font-size: 0.9rem;
+}
+
+.todo-filters {
+  display: flex;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.todo-filter {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 999px;
+  background: #fff;
+  color: #5a6470;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.todo-filter:hover {
+  background: #f1f2f4;
+  color: #1f2933;
+}
+
+.todo-filter:focus-visible {
+  outline: 2px solid #a7c9b0;
+  outline-offset: 1px;
+}
+
+.todo-filter--active {
+  background: #cfe9d2;
+  border-color: #6fae86;
+  color: #1f2933;
+}
+
+.todo-filter--active:hover {
+  background: #cfe9d2;
 }
 
 .todo-clear-completed {
