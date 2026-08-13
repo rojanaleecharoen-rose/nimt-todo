@@ -70,3 +70,75 @@ h1 {
   font-size: 1.05rem;
   color: #1f2933;
 }
+
+.add-form {
+  margin-bottom: 1.75rem;
+}
+
+.add-form__row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.add-form__input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.75rem 0.9rem;
+  font-size: 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  color: #1f2933;
+}
+
+.add-form__input::placeholder {
+  color: #9aa3ad;
+}
+
+.add-form__input:focus {
+  outline: 2px solid #a7c9b0;
+  border-color: transparent;
+}
+
+.add-form__input[aria-invalid='true'] {
+  border-color: #d9534f;
+  outline-color: #d9534f;
+}
+
+.add-form__color {
+  padding: 0.7rem 0.6rem;
+  font-size: 0.95rem;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  color: #1f2933;
+  cursor: pointer;
+}
+
+.add-form__submit {
+  padding: 0.75rem 1.15rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 12px;
+  background: #cfe9d2;
+  color: #1f2933;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.add-form__submit:hover:not(:disabled) {
+  background: #bcdcc1;
+}
+
+.add-form__submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.add-form__error {
+  margin: 0.55rem 0 0;
+  color: #b00020;
+  font-size: 0.9rem;
+}

@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import type { Todo } from '@pastel-todo/shared';
+import { AddTodo } from './AddTodo';
 import { fetchTodos } from './api';
 import { DEFAULT_COLOR, PASTEL_CSS } from './pastel';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
 /**
- * Fetches and renders all todos as a pastel-colored list.
- * Shows a friendly empty state when there are no todos.
+ * Renders the add-todo form and all todos as a pastel-colored list.
+ * New todos are appended to the end of the list, matching the server's
+ * creation-order (ascending createdAt) sort.
  */
 export function TodoList() {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -29,33 +31,39 @@ export function TodoList() {
     };
   }, []);
 
-  if (state === 'loading') {
-    return <p className="todo-status">Loading your todos...</p>;
-  }
-
-  if (state === 'error') {
-    return (
-      <p className="todo-status todo-status--error">
-        Could not load your todos. Try again later.
-      </p>
-    );
-  }
-
-  if (todos.length === 0) {
-    return <p className="todo-empty">No todos yet. Add one above!</p>;
+  function handleCreated(todo: Todo) {
+    setTodos((prev) => [...prev, todo]);
   }
 
   return (
-    <ul className="todo-list" aria-label="Your todos">
-      {todos.map((todo) => (
-        <li
-          key={todo.id}
-          className="todo-item"
-          style={{ backgroundColor: PASTEL_CSS[todo.color ?? DEFAULT_COLOR] }}
-        >
-          <span className="todo-title">{todo.title}</span>
-        </li>
-      ))}
-    </ul>
+    <>
+      <AddTodo onCreated={handleCreated} />
+
+      {state === 'loading' && <p className="todo-status">Loading your todos...</p>}
+
+      {state === 'error' && (
+        <p className="todo-status todo-status--error">
+          Could not load your todos. Try again later.
+        </p>
+      )}
+
+      {state === 'ready' && todos.length === 0 && (
+        <p className="todo-empty">No todos yet. Add one above!</p>
+      )}
+
+      {state === 'ready' && todos.length > 0 && (
+        <ul className="todo-list" aria-label="Your todos">
+          {todos.map((todo) => (
+            <li
+              key={todo.id}
+              className="todo-item"
+              style={{ backgroundColor: PASTEL_CSS[todo.color ?? DEFAULT_COLOR] }}
+            >
+              <span className="todo-title">{todo.title}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
   );
 }

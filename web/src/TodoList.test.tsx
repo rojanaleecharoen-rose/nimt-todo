@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { Todo } from '@pastel-todo/shared';
 import { PASTEL_CSS } from './pastel';
 import { TodoList } from './TodoList';
@@ -65,5 +65,35 @@ describe('TodoList', () => {
     const item = (await screen.findByText('Sky note')).closest('li');
     expect(item).not.toBeNull();
     expect(item).toHaveStyle({ backgroundColor: PASTEL_CSS.sky });
+  });
+
+  it('shows a newly created todo in the list after submission', async () => {
+    const created = makeTodo({
+      id: '00000000-0000-0000-0000-000000000002',
+      title: 'Fresh task',
+      color: 'peach',
+    });
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+      Promise.resolve(
+        init?.method === 'POST'
+          ? { ok: true, json: async () => created }
+          : { ok: true, json: async () => [] },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TodoList />);
+
+    // Initial GET loads the empty state.
+    expect(await screen.findByText(/no todos yet/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/new todo title/i), {
+      target: { value: 'Fresh task' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /add/i }));
+
+    expect(await screen.findByText('Fresh task')).toBeInTheDocument();
+    expect(screen.queryByText(/no todos yet/i)).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
