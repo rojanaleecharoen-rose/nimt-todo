@@ -1,0 +1,32 @@
+// Prisma schema for the Pastel Todo server.
+// The background palette is defined once in shared/src/index.ts; keep the
+// `Color` enum values in sync with `PASTEL_COLORS` there.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Color {
+  mint
+  sky
+  lavender
+  peach
+  rose
+  butter
+}
+
+model Todo {
+  id        String   @id @default(uuid()) @db.Uuid
+  title     String
+  done      Boolean  @default(false)
+  color     Color?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("todos")
+}
