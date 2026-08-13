@@ -161,3 +161,99 @@ h1 {
   color: #b00020;
   font-size: 0.9rem;
 }
+
+/* Inline title editing */
+.todo-edit {
+  flex: 1;
+  min-width: 0;
+}
+
+.todo-edit__row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.todo-edit__input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  color: #1f2933;
+}
+
+.todo-edit__input:focus {
+  outline: 2px solid #a7c9b0;
+  border-color: transparent;
+}
+
+.todo-edit__input[aria-invalid='true'] {
+  border-color: #d9534f;
+  outline-color: #d9534f;
+}
+
+.todo-edit__input:disabled {
+  opacity: 0.6;
+}
+
+.todo-edit__save,
+.todo-edit__cancel {
+  padding: 0.5rem 0.9rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.todo-edit__save {
+  background: #cfe9d2;
+  color: #1f2933;
+}
+
+.todo-edit__save:hover:not(:disabled) {
+  background: #bcdcc1;
+}
+
+.todo-edit__cancel {
+  background: #f1f2f4;
+  color: #5a6470;
+}
+
+.todo-edit__cancel:hover:not(:disabled) {
+  background: #e2e4e7;
+}
+
+.todo-edit__save:disabled,
+.todo-edit__cancel:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.todo-edit__error {
+  margin: 0.5rem 0 0;
+  color: #b00020;
+  font-size: 0.9rem;
+}
+
+.todo-edit__trigger {
+  margin-left: auto;
+  padding: 0.25rem 0.5rem;
+  font-size: 1rem;
+  line-height: 1;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #5a6470;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.todo-edit__trigger:hover {
+  background: rgba(255, 255, 255, 0.7);
+  color: #1f2933;
+}

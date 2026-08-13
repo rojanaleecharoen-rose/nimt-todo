@@ -180,3 +180,166 @@ describe('TodoList', () => {
     expect(item).not.toHaveClass('todo-item--done');
   });
 });
+
+describe('TodoList inline title editing', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it('enters edit mode on double-click with the current title pre-filled', async () => {
+    mockFetch([makeTodo({ title: 'Buy milk' })]);
+    render(<TodoList />);
+
+    fireEvent.doubleClick(await screen.findByText('Buy milk'));
+
+    const input = screen.getByLabelText(/edit todo title/i) as HTMLInputElement;
+    expect(input).toHaveValue('Buy milk');
+  });
+
+  it('enters edit mode from the edit button', async () => {
+    mockFetch([makeTodo({ title: 'Buy milk' })]);
+    render(<TodoList />);
+    await screen.findByText('Buy milk');
+
+    fireEvent.click(screen.getByRole('button', { name: /edit "buy milk"/i }));
+
+    expect(screen.getByLabelText(/edit todo title/i)).toBeInTheDocument();
+  });
+
+  it('commits the edited title on Enter and shows the updated title', async () => {
+    const updated = makeTodo({ title: 'Buy oat milk' });
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+      Promise.resolve(
+        init?.method === 'PATCH'
+          ? { ok: true, json: async () => updated }
+          : { ok: true, json: async () => [makeTodo({ title: 'Buy milk' })] },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TodoList />);
+    await screen.findByText('Buy milk');
+
+    fireEvent.doubleClick(screen.getByText('Buy milk'));
+    const input = screen.getByLabelText(/edit todo title/i);
+    fireEvent.change(input, { target: { value: 'Buy oat milk' } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+
+    expect(await screen.findByText('Buy oat milk')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/edit todo title/i)).not.toBeInTheDocument();
+
+    // The PATCH went to /todos/:id with { title }.
+    const [, init] = fetchMock.mock.calls[1];
+    expect(init).toMatchObject({ method: 'PATCH' });
+    expect(JSON.parse(String(init?.body))).toEqual({ title: 'Buy oat milk' });
+  });
+
+  it('cancels editing on Escape and reverts to the original title', async () => {
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+      Promise.resolve(
+        init?.method === 'PATCH'
+          ? { ok: true, json: async () => makeTodo({ title: 'Buy milk' }) }
+          : { ok: true, json: async () => [makeTodo({ title: 'Buy milk' })] },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TodoList />);
+    await screen.findByText('Buy milk');
+
+    fireEvent.doubleClick(screen.getByText('Buy milk'));
+    const input = screen.getByLabelText(/edit todo title/i);
+    fireEvent.change(input, { target: { value: 'Changed my mind' } });
+    fireEvent.keyDown(input, { key: 'Escape', code: 'Escape' });
+
+    expect(screen.getByText('Buy milk')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/edit todo title/i)).not.toBeInTheDocument();
+    // Only the initial GET happened — no PATCH on cancel.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows an inline validation error when the edited title is empty', async () => {
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+      Promise.resolve(
+        init?.method === 'PATCH'
+          ? { ok: true, json: async () => makeTodo() }
+          : { ok: true, json: async () => [makeTodo({ title: 'Buy milk' })] },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TodoList />);
+    await screen.findByText('Buy milk');
+
+    fireEvent.doubleClick(screen.getByText('Buy milk'));
+    const input = screen.getByLabelText(/edit todo title/i);
+    fireEvent.change(input, { target: { value: '   ' } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/must not be empty/i);
+    // Still editing so the user can correct the title.
+    expect(screen.getByLabelText(/edit todo title/i)).toBeInTheDocument();
+    // No PATCH was attempted for an invalid title.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows an inline error when the server rejects the title update', async () => {
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'PATCH') {
+        return Promise.resolve({
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: {
+              formErrors: [],
+              fieldErrors: { title: ['title must not be empty'] },
+            },
+          }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => [makeTodo({ title: 'Buy milk' })] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TodoList />);
+    await screen.findByText('Buy milk');
+
+    fireEvent.doubleClick(screen.getByText('Buy milk'));
+    const input = screen.getByLabelText(/edit todo title/i);
+    fireEvent.change(input, { target: { value: 'blocked by server' } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/must not be empty/i);
+    expect(screen.getByLabelText(/edit todo title/i)).toBeInTheDocument();
+  });
+
+  it('shows the updated title after a page refresh re-fetches from the API', async () => {
+    let edited = false;
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'PATCH') {
+        edited = true;
+        return Promise.resolve({ ok: true, json: async () => makeTodo({ title: 'Buy oat milk' }) });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => (edited ? [makeTodo({ title: 'Buy oat milk' })] : [makeTodo({ title: 'Buy milk' })]),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const first = render(<TodoList />);
+    await screen.findByText('Buy milk');
+
+    fireEvent.doubleClick(screen.getByText('Buy milk'));
+    const input = screen.getByLabelText(/edit todo title/i);
+    fireEvent.change(input, { target: { value: 'Buy oat milk' } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+    expect(await screen.findByText('Buy oat milk')).toBeInTheDocument();
+
+    // Simulate a page refresh: unmount and remount, which re-fetches from the API.
+    first.unmount();
+    render(<TodoList />);
+    expect(await screen.findByText('Buy oat milk')).toBeInTheDocument();
+  });
+});

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { Todo } from '@pastel-todo/shared';
 import { AddTodo } from './AddTodo';
+import { TodoItem } from './TodoItem';
 import { fetchTodos, updateTodo } from './api';
-import { DEFAULT_COLOR, PASTEL_CSS } from './pastel';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
@@ -56,6 +56,18 @@ export function TodoList() {
     }
   }
 
+  /**
+   * Persist an edited title and reconcile local state with the server response.
+   * Rejects (throwing) when the server rejects the update, so the TodoItem can
+   * surface the validation error inline.
+   */
+  async function handleRename(id: string, title: string) {
+    const updated = await updateTodo(id, { title });
+    setTodos((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, title: updated.title } : t)),
+    );
+  }
+
   return (
     <>
       <AddTodo onCreated={handleCreated} />
@@ -75,20 +87,12 @@ export function TodoList() {
       {state === 'ready' && todos.length > 0 && (
         <ul className="todo-list" aria-label="Your todos">
           {todos.map((todo) => (
-            <li
+            <TodoItem
               key={todo.id}
-              className={`todo-item${todo.done ? ' todo-item--done' : ''}`}
-              style={{ backgroundColor: PASTEL_CSS[todo.color ?? DEFAULT_COLOR] }}
-            >
-              <input
-                type="checkbox"
-                className="todo-checkbox"
-                checked={todo.done}
-                onChange={() => handleToggle(todo)}
-                aria-label={`Mark "${todo.title}" as ${todo.done ? 'not done' : 'done'}`}
-              />
-              <span className="todo-title">{todo.title}</span>
-            </li>
+              todo={todo}
+              onToggle={handleToggle}
+              onRename={handleRename}
+            />
           ))}
         </ul>
       )}
