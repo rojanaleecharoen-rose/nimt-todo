@@ -92,6 +92,21 @@ todosRouter.patch('/:id', async (req, res, next) => {
   }
 });
 
+// DELETE /todos?completed=true — remove all completed todos. A bare DELETE on
+// the collection without the flag is rejected since it has no defined meaning.
+todosRouter.delete('/', async (req, res, next) => {
+  try {
+    if (req.query.completed !== 'true') {
+      res.status(400).json({ error: 'Specify ?completed=true to clear completed todos' });
+      return;
+    }
+    const result = await prisma.todo.deleteMany({ where: { done: true } });
+    res.json({ deleted: result.count });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // DELETE /todos/:id — delete a single todo.
 todosRouter.delete('/:id', async (req, res, next) => {
   try {

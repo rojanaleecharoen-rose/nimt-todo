@@ -165,4 +165,51 @@ describe('Todos API — skeleton seam', () => {
       expect(res.status).toBe(404);
     });
   });
+
+  describe('DELETE /todos?completed=true', () => {
+    it('removes only completed todos and leaves incomplete ones', async () => {
+      await prisma.todo.create({ data: { title: 'Done one', done: true } });
+      await prisma.todo.create({ data: { title: 'Done two', done: true } });
+      await prisma.todo.create({ data: { title: 'Still active' } });
+
+      const res = await request(app).delete('/todos?completed=true');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ deleted: 2 });
+
+      const remaining = await prisma.todo.findMany({ orderBy: { title: 'asc' } });
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].title).toBe('Still active');
+      expect(remaining[0].done).toBe(false);
+    });
+
+    it('persists the clear in the database', async () => {
+      await prisma.todo.create({ data: { title: 'Doomed', done: true } });
+      await prisma.todo.create({ data: { title: 'Survivor' } });
+
+      await request(app).delete('/todos?completed=true');
+
+      const survivor = await prisma.todo.findFirst({ where: { title: 'Survivor' } });
+      expect(survivor).not.toBeNull();
+      const doomed = await prisma.todo.findFirst({ where: { title: 'Doomed' } });
+      expect(doomed).toBeNull();
+    });
+
+    it('returns deleted: 0 when there are no completed todos', async () => {
+      await prisma.todo.create({ data: { title: 'Active only' } });
+
+      const res = await request(app).delete('/todos?completed=true');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ deleted: 0 });
+      expect(await prisma.todo.count()).toBe(1);
+    });
+
+    it('rejects a bare DELETE /todos without the completed flag', async () => {
+      const res = await request(app).delete('/todos');
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty('error');
+    });
+  });
 });

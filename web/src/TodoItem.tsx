@@ -11,6 +11,8 @@ interface TodoItemProps {
   onToggle: (todo: Todo) => void;
   /** Persist a title edit; rejects (throws) when the server rejects it. */
   onRename: (id: string, title: string) => Promise<void>;
+  /** Delete the todo by id (owned by the parent's delete handler). */
+  onDelete: (id: string) => void;
 }
 
 /** Pulls the most specific message out of a server validation error body. */
@@ -41,7 +43,7 @@ function titleValidationMessage(title: string): string | null {
  * that commits on Enter/Save and cancels on Escape/Cancel. Empty or server-
  * rejected titles surface as an inline error without leaving edit mode.
  */
-export function TodoItem({ todo, onToggle, onRename }: TodoItemProps) {
+export function TodoItem({ todo, onToggle, onRename, onDelete }: TodoItemProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(todo.title);
   const [error, setError] = useState<string | null>(null);
@@ -167,6 +169,14 @@ export function TodoItem({ todo, onToggle, onRename }: TodoItemProps) {
             aria-label={`Edit "${todo.title}"`}
           >
             ✎
+          </button>
+          <button
+            type="button"
+            className="todo-delete"
+            onClick={() => onDelete(todo.id)}
+            aria-label={`Delete "${todo.title}"`}
+          >
+            🗑
           </button>
         </>
       )}
