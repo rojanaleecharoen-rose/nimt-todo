@@ -71,6 +71,25 @@ h1 {
   color: #1f2933;
 }
 
+.todo-checkbox {
+  width: 1.2rem;
+  height: 1.2rem;
+  flex-shrink: 0;
+  margin: 0;
+  accent-color: #6fae86;
+  cursor: pointer;
+}
+
+/* Completed todos are struck through and dimmed. */
+.todo-item--done {
+  opacity: 0.6;
+}
+
+.todo-item--done .todo-title {
+  text-decoration: line-through;
+  color: #5a6470;
+}
+
 .add-form {
   margin-bottom: 1.75rem;
 }

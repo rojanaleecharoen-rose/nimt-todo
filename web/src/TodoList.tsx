@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Todo } from '@pastel-todo/shared';
 import { AddTodo } from './AddTodo';
-import { fetchTodos } from './api';
+import { fetchTodos, updateTodo } from './api';
 import { DEFAULT_COLOR, PASTEL_CSS } from './pastel';
 
 type LoadState = 'loading' | 'ready' | 'error';
@@ -35,6 +35,27 @@ export function TodoList() {
     setTodos((prev) => [...prev, todo]);
   }
 
+  /**
+   * Toggle a todo's done state. Applies the change optimistically so the UI
+   * feels instant, then reconciles with the server response; reverts on error.
+   */
+  async function handleToggle(todo: Todo) {
+    const nextDone = !todo.done;
+    setTodos((prev) =>
+      prev.map((t) => (t.id === todo.id ? { ...t, done: nextDone } : t)),
+    );
+    try {
+      const updated = await updateTodo(todo.id, { done: nextDone });
+      setTodos((prev) =>
+        prev.map((t) => (t.id === todo.id ? { ...t, done: updated.done } : t)),
+      );
+    } catch {
+      setTodos((prev) =>
+        prev.map((t) => (t.id === todo.id ? { ...t, done: todo.done } : t)),
+      );
+    }
+  }
+
   return (
     <>
       <AddTodo onCreated={handleCreated} />
@@ -56,9 +77,16 @@ export function TodoList() {
           {todos.map((todo) => (
             <li
               key={todo.id}
-              className="todo-item"
+              className={`todo-item${todo.done ? ' todo-item--done' : ''}`}
               style={{ backgroundColor: PASTEL_CSS[todo.color ?? DEFAULT_COLOR] }}
             >
+              <input
+                type="checkbox"
+                className="todo-checkbox"
+                checked={todo.done}
+                onChange={() => handleToggle(todo)}
+                aria-label={`Mark "${todo.title}" as ${todo.done ? 'not done' : 'done'}`}
+              />
               <span className="todo-title">{todo.title}</span>
             </li>
           ))}

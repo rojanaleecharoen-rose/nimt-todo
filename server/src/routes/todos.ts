@@ -23,6 +23,20 @@ function parseOr400<T>(schema: SafeParsable<T>, body: unknown, res: Response): T
   return parsed.data;
 }
 
+/**
+ * Returns true when `err` is Prisma's "record required but not found" error
+ * (code P2025) — e.g. from `update`/`delete` on an id that doesn't exist.
+ * Such an operation should surface as a 404, not a 500.
+ */
+function isRecordNotFoundError(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    (err as { code?: unknown }).code === 'P2025'
+  );
+}
+
 export const todosRouter = Router();
 
 // GET /todos — list all todos. Returns [] when the DB is empty.
@@ -59,10 +73,19 @@ todosRouter.patch('/:id', async (req, res, next) => {
     const data = parseOr400(updateTodoSchema, req.body, res);
     if (!data) return;
 
-    const todo = await prisma.todo.update({
-      where: { id: req.params.id },
-      data,
-    });
+    let todo;
+    try {
+      todo = await prisma.todo.update({
+        where: { id: req.params.id },
+        data,
+      });
+    } catch (err) {
+      if (isRecordNotFoundError(err)) {
+        res.status(404).json({ error: 'Todo not found' });
+        return;
+      }
+      throw err;
+    }
     res.json(todo);
   } catch (err) {
     next(err);
@@ -72,7 +95,15 @@ todosRouter.patch('/:id', async (req, res, next) => {
 // DELETE /todos/:id — delete a single todo.
 todosRouter.delete('/:id', async (req, res, next) => {
   try {
-    await prisma.todo.delete({ where: { id: req.params.id } });
+    try {
+      await prisma.todo.delete({ where: { id: req.params.id } });
+    } catch (err) {
+      if (isRecordNotFoundError(err)) {
+        res.status(404).json({ error: 'Todo not found' });
+        return;
+      }
+      throw err;
+    }
     res.status(204).send();
   } catch (err) {
     next(err);

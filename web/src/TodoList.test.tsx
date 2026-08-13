@@ -96,4 +96,87 @@ describe('TodoList', () => {
     expect(screen.queryByText(/no todos yet/i)).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it('checks a todo off to mark it done and persists the toggle', async () => {
+    const updated = makeTodo({ title: 'Buy milk', done: true });
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+      Promise.resolve(
+        init?.method === 'PATCH'
+          ? { ok: true, json: async () => updated }
+          : { ok: true, json: async () => [makeTodo({ title: 'Buy milk' })] },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TodoList />);
+
+    const checkbox = (await screen.findByRole('checkbox', {
+      name: /mark "buy milk" as done/i,
+    })) as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+
+    fireEvent.click(checkbox);
+
+    // State reflects the server response: the checkbox is now checked.
+    expect(
+      await screen.findByRole('checkbox', { name: /mark "buy milk" as not done/i }),
+    ).toBeInTheDocument();
+
+    // The PATCH went to /todos/:id with { done: true }.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [url, init] = fetchMock.mock.calls[1];
+    expect(String(url)).toMatch(/\/todos\/00000000-0000-0000-0000-000000000001$/);
+    expect(init).toMatchObject({ method: 'PATCH' });
+    expect(init).toBeDefined();
+    expect(JSON.parse(String(init?.body))).toEqual({ done: true });
+  });
+
+  it('unchecks a done todo to reopen it', async () => {
+    const updated = makeTodo({ title: 'Buy milk', done: false });
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+      Promise.resolve(
+        init?.method === 'PATCH'
+          ? { ok: true, json: async () => updated }
+          : { ok: true, json: async () => [makeTodo({ title: 'Buy milk', done: true })] },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TodoList />);
+
+    const checkbox = (await screen.findByRole('checkbox', {
+      name: /mark "buy milk" as not done/i,
+    })) as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+
+    fireEvent.click(checkbox);
+
+    expect(
+      await screen.findByRole('checkbox', { name: /mark "buy milk" as done/i }),
+    ).toBeInTheDocument();
+
+    const [, init] = fetchMock.mock.calls[1];
+    expect(init).toBeDefined();
+    expect(JSON.parse(String(init?.body))).toEqual({ done: false });
+  });
+
+  it('applies done styling (strike-through + dimmed) to completed todos', async () => {
+    mockFetch([makeTodo({ title: 'Finished', done: true })]);
+
+    render(<TodoList />);
+
+    const item = (await screen.findByText('Finished')).closest('li');
+    expect(item).not.toBeNull();
+    expect(item).toHaveClass('todo-item--done');
+  });
+
+  it('does not dim incomplete todos', async () => {
+    mockFetch([makeTodo({ title: 'Ongoing', done: false })]);
+
+    render(<TodoList />);
+
+    const item = (await screen.findByText('Ongoing')).closest('li');
+    expect(item).not.toBeNull();
+    expect(item).not.toHaveClass('todo-item--done');
+  });
 });

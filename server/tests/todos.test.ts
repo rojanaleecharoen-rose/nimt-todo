@@ -96,9 +96,34 @@ describe('Todos API — skeleton seam', () => {
       expect(res.body).toHaveProperty('error');
     });
 
-    it('returns 500 for a missing todo', async () => {
+    it('returns 404 for a missing todo', async () => {
       const res = await request(app).patch(`/todos/${randomUUID()}`).send({ done: true });
-      expect(res.status).toBe(500);
+      expect(res.status).toBe(404);
+    });
+
+    it('persists toggling done in the database', async () => {
+      const todo = await prisma.todo.create({ data: { title: 'Toggle me' } });
+      expect(todo.done).toBe(false);
+
+      const res = await request(app).patch(`/todos/${todo.id}`).send({ done: true });
+
+      expect(res.status).toBe(200);
+      expect(res.body.done).toBe(true);
+
+      const persisted = await prisma.todo.findUnique({ where: { id: todo.id } });
+      expect(persisted?.done).toBe(true);
+    });
+
+    it('persists reopening a done todo', async () => {
+      const todo = await prisma.todo.create({ data: { title: 'Reopen me', done: true } });
+
+      const res = await request(app).patch(`/todos/${todo.id}`).send({ done: false });
+
+      expect(res.status).toBe(200);
+      expect(res.body.done).toBe(false);
+
+      const persisted = await prisma.todo.findUnique({ where: { id: todo.id } });
+      expect(persisted?.done).toBe(false);
     });
   });
 
@@ -113,9 +138,9 @@ describe('Todos API — skeleton seam', () => {
       expect(remaining).toBe(0);
     });
 
-    it('returns 500 for a missing todo', async () => {
+    it('returns 404 for a missing todo', async () => {
       const res = await request(app).delete(`/todos/${randomUUID()}`);
-      expect(res.status).toBe(500);
+      expect(res.status).toBe(404);
     });
   });
 });
