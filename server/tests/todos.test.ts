@@ -87,6 +87,28 @@ describe('Todos API — skeleton seam', () => {
       expect(res.body.title).toBe('Edited');
     });
 
+    it('persists a title update in the database', async () => {
+      const todo = await prisma.todo.create({ data: { title: 'Old title' } });
+
+      const res = await request(app).patch(`/todos/${todo.id}`).send({ title: 'New title' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.title).toBe('New title');
+
+      const persisted = await prisma.todo.findUnique({ where: { id: todo.id } });
+      expect(persisted?.title).toBe('New title');
+    });
+
+    it('rejects an empty title with a structured 400', async () => {
+      const todo = await prisma.todo.create({ data: { title: 'x' } });
+
+      const res = await request(app).patch(`/todos/${todo.id}`).send({ title: '' });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toHaveProperty('error');
+      expect(res.body.error.fieldErrors.title).toEqual(['title must not be empty']);
+    });
+
     it('rejects an empty body with 400', async () => {
       const todo = await prisma.todo.create({ data: { title: 'x' } });
 
