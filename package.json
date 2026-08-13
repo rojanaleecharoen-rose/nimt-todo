@@ -1,0 +1,22 @@
+{
+  "name": "pastel-todo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pastel Todo — monorepo (web SPA + Express/Prisma server + shared Zod schemas)",
+  "workspaces": [
+    "web",
+    "server",
+    "shared"
+  ],
+  "scripts": {
+    "build:shared": "npm run build --workspace @pastel-todo/shared",
+    "postinstall": "npm run build:shared",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "dev:server": "npm run dev --workspace @pastel-todo/server",
+    "dev:web": "npm run dev --workspace @pastel-todo/web"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

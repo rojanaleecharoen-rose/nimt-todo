@@ -1,0 +1,38 @@
+{
+  "name": "@pastel-todo/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "prisma": {
+    "schema": "prisma/schema.prisma"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:dev": "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pastel_todo prisma migrate dev",
+    "db:test:setup": "DATABASE_URL=postgresql://postgres:postgres@localhost:5433/pastel_todo_test prisma migrate deploy",
+    "build:shared": "npm run build --workspace @pastel-todo/shared",
+    "pretest": "npm run build:shared && npm run db:test:setup",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest --coverage"
+  },
+  "dependencies": {
+    "@pastel-todo/shared": "*",
+    "@prisma/client": "^6.19.0",
+    "dotenv": "^16.4.0",
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.0",
+    "@types/supertest": "^6.0.2",
+    "@vitest/coverage-v8": "^4.0.0",
+    "prisma": "^6.19.0",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.0"
+  }
+}
