@@ -3,6 +3,12 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      // Forward API calls to the Express server in dev.
+      '/todos': 'http://localhost:3000',
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,
