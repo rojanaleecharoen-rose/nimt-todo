@@ -1,15 +1,30 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { App } from './App';
 
-describe('App shell', () => {
-  it('renders the Pastel Todo heading', () => {
-    render(<App />);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Pastel Todo');
+function mockFetch(data: unknown) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue({ ok: true, json: async () => data }),
+  );
+}
+
+describe('App', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
   });
 
-  it('derives the palette from shared', () => {
+  it('renders the Pastel Todo heading', async () => {
+    mockFetch([]);
     render(<App />);
-    expect(screen.getByText(/6 pastel colors/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Pastel Todo');
+    // Wait for the async fetch so the component settles without act warnings.
+    await screen.findByText(/no todos yet/i);
+  });
+
+  it('shows the empty state when the API returns no todos', async () => {
+    mockFetch([]);
+    render(<App />);
+    expect(await screen.findByText(/no todos yet/i)).toBeInTheDocument();
   });
 });
