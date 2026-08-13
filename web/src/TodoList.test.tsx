@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { Todo } from '@pastel-todo/shared';
 import { PASTEL_CSS } from './pastel';
 import { TodoList } from './TodoList';
@@ -341,5 +341,110 @@ describe('TodoList inline title editing', () => {
     first.unmount();
     render(<TodoList />);
     expect(await screen.findByText('Buy oat milk')).toBeInTheDocument();
+  });
+});
+
+describe('TodoList delete + clear completed', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it('deletes a todo when its delete control is clicked, without a full reload', async () => {
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+      Promise.resolve(
+        init?.method === 'DELETE'
+          ? { ok: true, json: async () => ({}) }
+          : {
+              ok: true,
+              json: async () => [
+                makeTodo({ title: 'Buy milk' }),
+                makeTodo({
+                  id: '00000000-0000-0000-0000-000000000002',
+                  title: 'Walk dog',
+                }),
+              ],
+            },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TodoList />);
+
+    await screen.findByText('Buy milk');
+    fireEvent.click(screen.getByRole('button', { name: /delete "buy milk"/i }));
+
+    // The deleted todo is gone, the sibling remains — and no reload occurred.
+    await waitFor(() =>
+      expect(screen.queryByText('Buy milk')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('Walk dog')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    // The DELETE went to /todos/:id.
+    const [url, init] = fetchMock.mock.calls[1];
+    expect(String(url)).toMatch(/\/todos\/00000000-0000-0000-0000-000000000001$/);
+    expect(init).toMatchObject({ method: 'DELETE' });
+  });
+
+  it('keeps a todo in the list when the delete request fails', async () => {
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+      Promise.resolve(
+        init?.method === 'DELETE'
+          ? { ok: false, status: 500, json: async () => ({}) }
+          : { ok: true, json: async () => [makeTodo({ title: 'Buy milk' })] },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TodoList />);
+
+    await screen.findByText('Buy milk');
+    fireEvent.click(screen.getByRole('button', { name: /delete "buy milk"/i }));
+
+    expect(await screen.findByText('Buy milk')).toBeInTheDocument();
+  });
+
+  it('clears all completed todos and keeps incomplete ones', async () => {
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+      Promise.resolve(
+        init?.method === 'DELETE'
+          ? { ok: true, json: async () => ({ deleted: 1 }) }
+          : {
+              ok: true,
+              json: async () => [
+                makeTodo({ title: 'Done', done: true }),
+                makeTodo({ title: 'Active' }),
+              ],
+            },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<TodoList />);
+
+    await screen.findByText('Done');
+    fireEvent.click(screen.getByRole('button', { name: /clear completed/i }));
+
+    // Done items are gone, incomplete items remain — no reload occurred.
+    await waitFor(() =>
+      expect(screen.queryByText('Done')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('Active')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    // The DELETE went to /todos?completed=true.
+    const [url, init] = fetchMock.mock.calls[1];
+    expect(String(url)).toContain('/todos?completed=true');
+    expect(init).toMatchObject({ method: 'DELETE' });
+  });
+
+  it('hides the clear-completed control when no todos are done', async () => {
+    mockFetch([makeTodo({ title: 'Active only' })]);
+
+    render(<TodoList />);
+
+    await screen.findByText('Active only');
+    expect(screen.queryByRole('button', { name: /clear completed/i })).not.toBeInTheDocument();
   });
 });

@@ -90,3 +90,40 @@ export async function updateTodo(id: string, data: UpdateTodoInput): Promise<Tod
 
   return (await res.json()) as Todo;
 }
+
+/**
+ * Deletes a todo via DELETE /todos/:id. Resolves once the server confirms the
+ * deletion (204). A 404 (unknown id) surfaces as an `ApiError`.
+ */
+export async function deleteTodo(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/todos/${id}`, {
+    method: 'DELETE',
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!res.ok) {
+    return throwApiError(res, `Failed to delete todo (HTTP ${res.status})`);
+  }
+}
+
+/** Shape of the DELETE /todos?completed=true response. */
+export interface ClearCompletedResult {
+  deleted: number;
+}
+
+/**
+ * Removes every completed todo via DELETE /todos?completed=true and returns
+ * the number of todos that were removed.
+ */
+export async function clearCompleted(): Promise<ClearCompletedResult> {
+  const res = await fetch(`${API_BASE}/todos?completed=true`, {
+    method: 'DELETE',
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!res.ok) {
+    return throwApiError(res, `Failed to clear completed todos (HTTP ${res.status})`);
+  }
+
+  return (await res.json()) as ClearCompletedResult;
+}

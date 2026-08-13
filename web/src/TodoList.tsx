@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Todo } from '@pastel-todo/shared';
 import { AddTodo } from './AddTodo';
 import { TodoItem } from './TodoItem';
-import { fetchTodos, updateTodo } from './api';
+import { clearCompleted, deleteTodo, fetchTodos, updateTodo } from './api';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
@@ -68,6 +68,34 @@ export function TodoList() {
     );
   }
 
+  /**
+   * Delete a todo. Removes it from local state only after the server confirms,
+   * so a failed delete leaves the list unchanged.
+   */
+  async function handleDelete(id: string) {
+    try {
+      await deleteTodo(id);
+      setTodos((prev) => prev.filter((t) => t.id !== id));
+    } catch {
+      // Deletion failed — keep the todo so the user can retry.
+    }
+  }
+
+  /**
+   * Remove every completed todo. Drops all done items from local state only
+   * after the server confirms, so a failed clear leaves the list unchanged.
+   */
+  async function handleClearCompleted() {
+    try {
+      await clearCompleted();
+      setTodos((prev) => prev.filter((t) => !t.done));
+    } catch {
+      // Clear failed — keep the completed todos so the user can retry.
+    }
+  }
+
+  const hasCompleted = todos.some((t) => t.done);
+
   return (
     <>
       <AddTodo onCreated={handleCreated} />
@@ -85,16 +113,30 @@ export function TodoList() {
       )}
 
       {state === 'ready' && todos.length > 0 && (
-        <ul className="todo-list" aria-label="Your todos">
-          {todos.map((todo) => (
-            <TodoItem
-              key={todo.id}
-              todo={todo}
-              onToggle={handleToggle}
-              onRename={handleRename}
-            />
-          ))}
-        </ul>
+        <>
+          <ul className="todo-list" aria-label="Your todos">
+            {todos.map((todo) => (
+              <TodoItem
+                key={todo.id}
+                todo={todo}
+                onToggle={handleToggle}
+                onRename={handleRename}
+                onDelete={handleDelete}
+              />
+            ))}
+          </ul>
+          {hasCompleted && (
+            <div className="todo-footer">
+              <button
+                type="button"
+                className="todo-clear-completed"
+                onClick={() => void handleClearCompleted()}
+              >
+                Clear completed
+              </button>
+            </div>
+          )}
+        </>
       )}
     </>
   );
